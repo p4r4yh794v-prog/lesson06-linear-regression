@@ -71,6 +71,24 @@ temps = yearly["연평균기온"].to_numpy(dtype=float)
 slope, intercept = np.polyfit(years, temps, 1)
 correlation = float(np.corrcoef(years, temps)[0, 1])
 
+# 최근 20년: 유효 데이터의 마지막 연도를 기준으로 20년 구간을 설정
+latest_year = int(yearly["연도"].max())
+recent_start_year = latest_year - 19
+recent = yearly[yearly["연도"] >= recent_start_year].copy()
+if len(recent) >= 2:
+    recent_slope, recent_intercept = np.polyfit(
+        recent["연도"].to_numpy(dtype=float),
+        recent["연평균기온"].to_numpy(dtype=float),
+        1,
+    )
+    recent_slope_per_100_years = recent_slope * 100
+else:
+    recent_slope = np.nan
+    recent_intercept = np.nan
+    recent_slope_per_100_years = np.nan
+
+slope_per_100_years = slope * 100
+
 selected_year = st.slider(
     "예측할 연도를 선택하세요",
     min_value=1900,
@@ -88,6 +106,28 @@ st.metric(
 st.caption(
     "이 값은 과거 연평균기온의 직선을 연장해 계산한 단순 추정치입니다. "
     "실제 미래 기온이나 공식 기후 전망을 의미하지 않습니다."
+)
+
+st.subheader("100년당 기온 변화 비교")
+trend_all, trend_recent = st.columns(2)
+with trend_all:
+    st.metric(
+        label=f"전체 기간 ({int(yearly['연도'].min())}~{latest_year}년)",
+        value=f"{slope_per_100_years:+.2f} °C / 100년",
+        help="조건을 만족하는 전체 연평균기온 데이터로 계산한 회귀 직선의 기울기입니다.",
+    )
+with trend_recent:
+    if len(recent) >= 2:
+        st.metric(
+            label=f"최근 20년 구간 ({recent_start_year}~{latest_year}년)",
+            value=f"{recent_slope_per_100_years:+.2f} °C / 100년",
+            help=f"최근 20년 구간 중 관측일 수 조건을 만족하는 {len(recent)}개 연도로 계산했습니다.",
+        )
+    else:
+        st.metric(label="최근 20년 구간", value="계산할 데이터 부족")
+st.caption(
+    "표시 단위는 회귀 직선의 연간 기울기에 100을 곱한 값입니다. "
+    "최근 20년 구간에서도 관측일 300일 이상인 해만 사용하므로 실제 회귀에 포함된 연도 수는 20개보다 적을 수 있습니다."
 )
 
 metric1, metric2, metric3, metric4 = st.columns(4)
